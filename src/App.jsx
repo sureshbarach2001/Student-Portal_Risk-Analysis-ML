@@ -8,15 +8,15 @@ import StudentGradePage from './pages/GradePage';
 import StudentAttendancePage from './pages/AttendancePage';
 import StudentDashboardPage from './pages/OverviewPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
-
+import HighMarksLowAttendancePage from './pages/HighMarksLowAttendancePage';
 // Placeholder components for new admin routes
 function HighRiskMarksPage() {
   return <div className="p-8">High Risk Marks Page (Under Construction)</div>;
 }
 
-function HighMarksLowAttendancePage() {
-  return <div className="p-8">High Marks / Low Attendance Page (Under Construction)</div>;
-}
+// function HighMarksLowAttendancePage() {
+//   return <div className="p-8">High Marks / Low Attendance Page (Under Construction)</div>;
+// }
 
 function PerformancePredictionPage() {
   return <div className="p-8">Performance Prediction Page (Under Construction)</div>;
