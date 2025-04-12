@@ -1,35 +1,66 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 function AuthPage() {
-  const [role, setRole] = useState('Student');
   const [username, setUsername] = useState('');
-  const { setRole: setGlobalRole, role: globalRole } = useAuth();
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const { setToken, setRole: setGlobalRole } = useAuth();
   const navigate = useNavigate();
 
-  // Debug: Log global role changes
-  useEffect(() => {
-    console.log('Global role updated:', globalRole);
-    // Navigate after role is set
-    if (globalRole === 'Admin') {
-      console.log('Navigating to /teacher-dashboard');
-      navigate('/teacher-dashboard', { replace: true });
-    } else if (globalRole === 'Student') {
-      console.log('Navigating to /student-dashboard');
-      navigate('/student-dashboard', { replace: true });
-    }
-  }, [globalRole, navigate]);
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const password = e.target.password.value;
-    const usernameValue = e.target.username.value;
+    setError('');
 
-    console.log('Form submitted. Role:', role, 'Username:', usernameValue, 'Password:', password);
+    const loginData = {
+      username,
+      password,
+    };
 
-    // Set the role in the global context
-    setGlobalRole(role);
+    console.log('Form submitted. Username:', username);
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/login/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(loginData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Successful login
+        const { token, user } = data;
+        console.log('Login successful. Token:', token, 'User:', user);
+
+        // Store token and role in AuthContext
+        setToken(token);
+        const role = user.role === 'teacher' ? 'Admin' : 'Student';
+        setGlobalRole(role);
+
+        // Store token in localStorage for persistence
+        localStorage.setItem('authToken', token);
+
+        // Navigate based on role
+        if (role === 'Admin') {
+          console.log('Navigating to /teacher-dashboard');
+          navigate('/teacher-dashboard', { replace: true });
+        } else {
+          console.log('Navigating to /student-dashboard');
+          navigate('/student-dashboard', { replace: true });
+        }
+      } else {
+        // Handle API errors
+        setError(data.error || 'Login failed. Please try again.');
+        console.log('Login error:', data.error);
+      }
+    } catch (err) {
+      setError('Network error. Please try again later.');
+      console.error('Network error:', err);
+    }
   };
 
   return (
@@ -37,28 +68,14 @@ function AuthPage() {
       <main className="w-full px-4 sm:px-6 lg:px-8 py-12 flex items-center justify-center">
         <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
           <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-            Login / Sign Up
+            Login
           </h1>
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <div>
-              <label
-                htmlFor="role"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Your Role
-              </label>
-              <select
-                id="role"
-                name="role"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-black"
-                required
-              >
-                <option value="Student">Student</option>
-                <option value="Admin">Admin</option>
-              </select>
+          {error && (
+            <div className="bg-red-100 text-red-700 p-3 rounded mb-4">
+              {error}
             </div>
+          )}
+          <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <label
                 htmlFor="username"
@@ -72,7 +89,7 @@ function AuthPage() {
                 name="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-black"
                 placeholder="Enter your username"
                 required
               />
@@ -88,7 +105,9 @@ function AuthPage() {
                 type="password"
                 id="password"
                 name="password"
-                className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-black"
                 placeholder="Enter your password"
                 required
               />
@@ -99,12 +118,6 @@ function AuthPage() {
                 className="w-full px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
               >
                 Login
-              </button>
-              <button
-                type="button"
-                className="w-full px-6 py-3 border border-blue-600 text-blue-600 rounded-xl font-medium hover:bg-blue-600 hover:text-white transition-colors"
-              >
-                Sign Up
               </button>
             </div>
           </form>
