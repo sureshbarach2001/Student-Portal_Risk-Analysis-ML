@@ -1,13 +1,13 @@
-// src/context/AuthContext.jsx
 import { createContext, useContext, useState } from 'react';
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
+  const [token, setToken] = useState(localStorage.getItem('authToken') || null);
   const [role, setRole] = useState(null);
 
   return (
-    <AuthContext.Provider value={{ role, setRole }}>
+    <AuthContext.Provider value={{ token, setToken, role, setRole }}>
       {children}
     </AuthContext.Provider>
   );

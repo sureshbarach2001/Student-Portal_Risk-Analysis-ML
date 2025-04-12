@@ -1,26 +1,48 @@
+import { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header_Student';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, LineElement, PointElement, LinearScale, Title, CategoryScale, Tooltip, Legend } from 'chart.js';
+import { useAuth } from '../context/AuthContext';
 
 // Register Chart.js components
 ChartJS.register(LineElement, PointElement, LinearScale, Title, CategoryScale, Tooltip, Legend);
 
 function OverviewPage() {
-  // Data for the Marks graph
-  const marksData = {
+  const [attendanceData, setAttendanceData] = useState([]);
+  const [marksData, setMarksData] = useState([]);
+  const [error, setError] = useState('');
+  const { token } = useAuth();
+
+  // Chart data states
+  const [marksChartData, setMarksChartData] = useState({
     labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
     datasets: [
       {
         label: 'Marks',
-        data: [60, 70, 80, 82, 84],
-        borderColor: '#10B981', // Green
+        data: [0, 0, 0, 0, 0],
+        borderColor: '#10B981',
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
         fill: true,
       },
     ],
-  };
+  });
+  const [attendanceChartData, setAttendanceChartData] = useState({
+    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
+    datasets: [
+      {
+        label: 'Attendance',
+        data: [0, 0, 0, 'Apr', 'May'],
+        borderColor: '#EF4444',
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        fill: true,
+      },
+    ],
+  });
+  const [marksPercentage, setMarksPercentage] = useState(0);
+  const [attendancePercentage, setAttendancePercentage] = useState(0);
 
+  // Chart options
   const marksOptions = {
     scales: {
       y: { beginAtZero: true, max: 100 },
@@ -29,20 +51,6 @@ function OverviewPage() {
       legend: { display: false },
     },
     maintainAspectRatio: false,
-  };
-
-  // Data for the Attendance graph
-  const attendanceData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
-    datasets: [
-      {
-        label: 'Attendance',
-        data: [80, 75, 70, 72, 70],
-        borderColor: '#EF4444', // Red
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        fill: true,
-      },
-    ],
   };
 
   const attendanceOptions = {
@@ -55,14 +63,14 @@ function OverviewPage() {
     maintainAspectRatio: false,
   };
 
-  // Data for the Average GPA graph
+  // Static GPA data (no API provided)
   const gpaData = {
     labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
     datasets: [
       {
         label: 'Average GPA',
         data: [2.2, 2.4, 2.5, 2.7, 2.8],
-        borderColor: '#10B981', // Green
+        borderColor: '#10B981',
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
         fill: true,
       },
@@ -79,6 +87,143 @@ function OverviewPage() {
     maintainAspectRatio: false,
   };
 
+  // Fetch attendance and marks data
+  useEffect(() => {
+    const fetchAttendance = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/my-attendance/`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Token ${token}`,
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Attendance data:', data);
+          setAttendanceData(data);
+        } else {
+          const errorData = await response.json();
+          setError(errorData.error || 'Failed to fetch attendance data');
+        }
+      } catch (err) {
+        setError('Network error fetching attendance.');
+      }
+    };
+
+    const fetchMarks = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/my-marks/`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Token ${token}`,
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Marks data:', data);
+          setMarksData(data);
+        } else {
+          const errorData = await response.json();
+          setError(errorData.error || 'Failed to fetch marks data');
+        }
+      } catch (err) {
+        setError('Network error fetching marks.');
+      }
+    };
+
+    if (token) {
+      fetchAttendance();
+      fetchMarks();
+    } else {
+      setError('Please log in to view overview.');
+    }
+  }, [token]);
+
+  // Process data for charts
+  useEffect(() => {
+    // Months to display (match dummy data)
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'];
+    const monthIndices = [0, 1, 2, 3, 4]; // Jan=0, ..., May=4
+
+    // Attendance: Calculate % of present days per month
+    const attendanceByMonth = Array(5).fill().map(() => ({ present: 0, total: 0 }));
+    attendanceData.forEach((record) => {
+      const date = new Date(record.date);
+      const monthIndex = date.getMonth();
+      if (monthIndex <= 4) { // Limit to Jan-May
+        attendanceByMonth[monthIndex].total += 1;
+        if (record.is_present) {
+          attendanceByMonth[monthIndex].present += 1;
+        }
+      }
+    });
+
+    const attendancePercentages = attendanceByMonth.map((m) =>
+      m.total > 0 ? Math.round((m.present / m.total) * 100) : 0
+    );
+    const overallAttendance = attendanceData.length > 0
+      ? Math.round(
+          (attendanceData.filter((r) => r.is_present).length / attendanceData.length) * 100
+        )
+      : 0;
+
+    // Marks: Calculate average % per month
+    const marksByMonth = Array(5).fill().map(() => ({ totalMarks: 0, maxMarks: 0 }));
+    marksData.forEach((record) => {
+      if (record.marks >= 0) { // Exclude not submitted
+        const date = new Date(record.date);
+        const monthIndex = date.getMonth();
+        if (monthIndex <= 4) {
+          marksByMonth[monthIndex].totalMarks += record.marks;
+          marksByMonth[monthIndex].maxMarks += record.max_marks;
+        }
+      }
+    });
+
+    const marksPercentages = marksByMonth.map((m) =>
+      m.maxMarks > 0 ? Math.round((m.totalMarks / m.maxMarks) * 100) : 0
+    );
+    const validMarks = marksData.filter((r) => r.marks >= 0);
+    const overallMarks = validMarks.length > 0
+      ? Math.round(
+          (validMarks.reduce((sum, r) => sum + r.marks, 0) /
+            validMarks.reduce((sum, r) => sum + r.max_marks, 0)) * 100
+        )
+      : 0;
+
+    // Update chart data
+    setAttendanceChartData({
+      labels: months,
+      datasets: [
+        {
+          label: 'Attendance',
+          data: attendancePercentages,
+          borderColor: '#EF4444',
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          fill: true,
+        },
+      ],
+    });
+
+    setMarksChartData({
+      labels: months,
+      datasets: [
+        {
+          label: 'Marks',
+          data: marksPercentages,
+          borderColor: '#10B981',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          fill: true,
+        },
+      ],
+    });
+
+    setAttendancePercentage(overallAttendance);
+    setMarksPercentage(overallMarks);
+  }, [attendanceData, marksData]);
+
   return (
     <div className="min-h-screen">
       {/* Header */}
@@ -94,29 +239,36 @@ function OverviewPage() {
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-800 mb-6">Performance Overview</h2>
 
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-100 text-red-700 p-3 rounded mb-4">
+                {error}
+              </div>
+            )}
+
             {/* Top Row: Cards */}
             <div className="flex space-x-4 mb-6">
               {/* Marks Card */}
               <div className="flex-1 p-4 border border-gray-200 rounded-lg">
                 <h3 className="text-sm font-medium text-gray-600">Marks</h3>
-                <p className="text-2xl font-semibold text-gray-900 mt-1">84%</p>
+                <p className="text-2xl font-semibold text-gray-900 mt-1">{marksPercentage}%</p>
                 <p className="text-sm text-green-600 mt-1 flex items-center">
-                  <span className="mr-1">↑ 40% vs last Semester</span>
+                  <span className="mr-1">↑ Trend</span>
                 </p>
                 <div className="mt-4 h-24">
-                  <Line data={marksData} options={marksOptions} />
+                  <Line data={marksChartData} options={marksOptions} />
                 </div>
               </div>
 
               {/* Attendance Card */}
               <div className="flex-1 p-4 border border-gray-200 rounded-lg">
                 <h3 className="text-sm font-medium text-gray-600">Attendance</h3>
-                <p className="text-2xl font-semibold text-gray-900 mt-1">70%</p>
+                <p className="text-2xl font-semibold text-gray-900 mt-1">{attendancePercentage}%</p>
                 <p className="text-sm text-red-600 mt-1 flex items-center">
-                  <span className="mr-1">↓ 10% vs last Semester</span>
+                  <span className="mr-1">↓ Trend</span>
                 </p>
                 <div className="mt-4 h-24">
-                  <Line data={attendanceData} options={attendanceOptions} />
+                  <Line data={attendanceChartData} options={attendanceOptions} />
                 </div>
               </div>
 
