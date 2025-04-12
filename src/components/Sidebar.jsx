@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { FaTachometerAlt, FaCalendarAlt, FaChartBar, FaUser } from 'react-icons/fa';
+import { FaTachometerAlt, FaCalendarAlt, FaChartBar, FaUser, FaExclamationTriangle, FaChartLine, FaCog } from 'react-icons/fa';
 
 function Sidebar({ activePage }) {
   const { role } = useAuth();
@@ -14,9 +14,11 @@ function Sidebar({ activePage }) {
   ];
 
   const adminLinks = [
-    { path: '/teacher-dashboard', name: 'Dashboard', icon: FaTachometerAlt, key: 'dashboard' },
-    { path: '/high-risk-marks', name: 'High Risk Marks', icon: FaChartBar, key: 'high-risk-marks' },
-    { path: '/admin-profile', name: 'Profile', icon: FaUser, key: 'profile' },
+    { path: '/high-risk-marks', name: 'At-Risk Identification', icon: FaExclamationTriangle, key: 'high-risk-marks' },
+    { path: '/high-marks-low-attendance', name: 'High Marks / Low Attendance', icon: FaChartBar, key: 'high-marks-low-attendance' },
+    { path: '/performance-prediction', name: 'Performance Prediction', icon: FaChartBar, key: 'performance-prediction' },
+    { path: '/grade-prediction', name: 'Grade Prediction', icon: FaChartLine, key: 'grade-prediction' },
+    { path: '/settings', name: 'Settings', icon: FaCog, key: 'settings' },
   ];
 
   const links = role === 'Admin' ? adminLinks : studentLinks;

@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import TeacherDashboardPage from './pages/LandingPage';
 import TeacherProfilePage from './pages/TeacherProfilePage';
 import AuthPage from './pages/AuthPage';
@@ -8,21 +9,58 @@ import StudentAttendancePage from './pages/AttendancePage';
 import StudentDashboardPage from './pages/OverviewPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
+// Placeholder components for new admin routes
+function HighRiskMarksPage() {
+  return <div className="p-8">High Risk Marks Page (Under Construction)</div>;
+}
+
+function HighMarksLowAttendancePage() {
+  return <div className="p-8">High Marks / Low Attendance Page (Under Construction)</div>;
+}
+
+function PerformancePredictionPage() {
+  return <div className="p-8">Performance Prediction Page (Under Construction)</div>;
+}
+
+function GradePredictionPage() {
+  return <div className="p-8">Grade Prediction Page (Under Construction)</div>;
+}
+
+// Redirector component to handle post-login navigation
+function Redirector() {
+  const { role } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (role) {
+      if (role === 'Admin' || role === 'Teacher') {
+        navigate('/high-risk-marks', { replace: true });
+      } else if (role === 'Student') {
+        navigate('/student-dashboard', { replace: true });
+      }
+    }
+  }, [role, navigate]);
+
+  return <AuthPage />;
+}
+
 // A wrapper component to protect routes based on role
 function ProtectedRoute({ children, allowedRole }) {
   const { role } = useAuth();
 
-  // If no role is set (user hasn't logged in), redirect to login
   if (!role) {
     return <Navigate to="/" replace />;
   }
 
-  // If the user's role doesn't match the allowed role, redirect to a default page
-  if (role !== allowedRole) {
-    return role === 'Admin' ? (
-      <Navigate to="/teacher-dashboard" replace />
-    ) : (
+  const isAllowed = Array.isArray(allowedRole)
+    ? allowedRole.includes(role)
+    : role === allowedRole;
+
+  if (!isAllowed) {
+    return role === 'Student' ? (
       <Navigate to="/student-dashboard" replace />
+    ) : (
+      <Navigate to="/high-risk-marks" replace />
     );
   }
 
@@ -34,8 +72,8 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Auth Page (accessible to everyone, no protection) */}
-          <Route path="/" element={<AuthPage />} />
+          {/* Auth Page with redirector */}
+          <Route path="/" element={<Redirector />} />
 
           {/* Student Routes */}
           <Route
@@ -73,17 +111,41 @@ function App() {
 
           {/* Admin (Teacher) Routes */}
           <Route
-            path="/teacher-dashboard"
+            path="/high-risk-marks"
             element={
-              <ProtectedRoute allowedRole="Admin">
+              <ProtectedRoute allowedRole={['Admin', 'Teacher']}>
                 <TeacherDashboardPage />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/admin-profile"
+            path="/high-marks-low-attendance"
             element={
-              <ProtectedRoute allowedRole="Admin">
+              <ProtectedRoute allowedRole={['Admin', 'Teacher']}>
+                <HighMarksLowAttendancePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/performance-prediction"
+            element={
+              <ProtectedRoute allowedRole={['Admin', 'Teacher']}>
+                <PerformancePredictionPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/grade-prediction"
+            element={
+              <ProtectedRoute allowedRole={['Admin', 'Teacher']}>
+                <GradePredictionPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute allowedRole={['Admin', 'Teacher']}>
                 <TeacherProfilePage />
               </ProtectedRoute>
             }
