@@ -9,18 +9,12 @@ import StudentAttendancePage from './pages/AttendancePage';
 import StudentDashboardPage from './pages/OverviewPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import HighMarksLowAttendancePage from './pages/HighMarksLowAttendancePage';
-// Placeholder components for new admin routes
-function HighRiskMarksPage() {
-  return <div className="p-8">High Risk Marks Page (Under Construction)</div>;
-}
+import PerformancePredictionPage from './pages/PerformancePredictionPage.jsx'; //new page banana h
+import SearchPage from './pages/SearchPage';
+//import GradePredictionPage from './pages/GradePredictionPage'; //new page banana h
 
-// function HighMarksLowAttendancePage() {
-//   return <div className="p-8">High Marks / Low Attendance Page (Under Construction)</div>;
-// }
 
-function PerformancePredictionPage() {
-  return <div className="p-8">Performance Prediction Page (Under Construction)</div>;
-}
+
 
 function GradePredictionPage() {
   return <div className="p-8">Grade Prediction Page (Under Construction)</div>;
@@ -139,6 +133,14 @@ function App() {
             element={
               <ProtectedRoute allowedRole={['Admin', 'Teacher']}>
                 <GradePredictionPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/search"
+            element={
+              <ProtectedRoute allowedRole={['Admin', 'Teacher']}>
+                <SearchPage />
               </ProtectedRoute>
             }
           />

@@ -43,6 +43,7 @@ function AuthPage() {
 
         // Store token in localStorage for persistence
         localStorage.setItem('authToken', token);
+        localStorage.setItem('userRole', user.role);
 
         // Navigate based on role
         if (role === 'Admin') {
