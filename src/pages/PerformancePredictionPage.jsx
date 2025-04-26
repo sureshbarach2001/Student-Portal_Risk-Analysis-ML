@@ -12,8 +12,8 @@ function PerformancePredictionPage() {
     assignmentSubmissionRate: '',
     engagementMetrics: '',
     historicalGPA: '',
-    riskLevel: '', // New field for risk level
-    predictedGrade: '', // New field for predicted grade
+    riskLevel: '',
+    predictedGrade: '',
   });
 
   const [searchRollNumber, setSearchRollNumber] = useState('');
@@ -24,6 +24,12 @@ function PerformancePredictionPage() {
     { name: 'Apr', performance: 75 },
     { name: 'May', performance: 85 },
   ]);
+
+  const [predictionSummary, setPredictionSummary] = useState({
+    excelPercentage: 85,
+    predictedScore: 78,
+    riskLevel: 'Not Available',
+  });
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -38,13 +44,10 @@ function PerformancePredictionPage() {
     e.preventDefault();
     try {
       const authToken = localStorage.getItem('authToken');
-      console.log('Auth Token:', authToken);
-
       if (!authToken) {
         throw new Error('Authentication token not found. Please log in.');
       }
 
-      // Step 1: Fetch student data using roll number
       const studentResponse = await fetch(`http://localhost:8000/api/students/search/${searchRollNumber}/`, {
         method: 'GET',
         headers: {
@@ -53,32 +56,17 @@ function PerformancePredictionPage() {
         },
       });
 
-      console.log('Student Response Status:', studentResponse.status);
-      console.log('Student Response Headers:', [...studentResponse.headers.entries()]);
-
       if (!studentResponse.ok) {
         const errorData = await studentResponse.json();
         throw new Error(`Error ${studentResponse.status}: ${errorData.error || studentResponse.statusText}`);
       }
 
-      const studentRawBody = await studentResponse.text();
-      console.log('Student Raw Response Body:', studentRawBody);
-
-      let studentData;
-      try {
-        studentData = JSON.parse(studentRawBody);
-      } catch (parseError) {
-        console.error('Student JSON Parse Error:', parseError);
-        throw new Error('Failed to parse student response as JSON');
-      }
-      console.log('Parsed Student Response Data:', JSON.stringify(studentData, null, 2));
-
+      const studentData = await studentResponse.json();
       if (!studentData.student) {
         throw new Error('Student data not found in response');
       }
 
-      // Step 2: Fetch risk analysis data using the student's username
-      const username = studentData.student.name; // Assuming the name field is the username (e.g., "student1")
+      const username = studentData.student.name;
       const riskResponse = await fetch(`http://localhost:8000/api/teacher/risk-analysis/${username}/`, {
         method: 'GET',
         headers: {
@@ -87,33 +75,17 @@ function PerformancePredictionPage() {
         },
       });
 
-      console.log('Risk Analysis Response Status:', riskResponse.status);
-      console.log('Risk Analysis Response Headers:', [...riskResponse.headers.entries()]);
-
       if (!riskResponse.ok) {
         const errorData = await riskResponse.json();
         throw new Error(`Error ${riskResponse.status}: ${errorData.error || riskResponse.statusText}`);
       }
 
-      const riskRawBody = await riskResponse.text();
-      console.log('Risk Analysis Raw Response Body:', riskRawBody);
-
-      let riskData;
-      try {
-        riskData = JSON.parse(riskRawBody);
-      } catch (parseError) {
-        console.error('Risk Analysis JSON Parse Error:', parseError);
-        throw new Error('Failed to parse risk analysis response as JSON');
-      }
-      console.log('Parsed Risk Analysis Response Data:', JSON.stringify(riskData, null, 2));
-
+      const riskData = await riskResponse.json();
       if (!riskData.name) {
         throw new Error('Risk analysis data not found in response');
       }
 
-      // Step 3: Process both student data and risk analysis data
       processStudentData(studentData, riskData);
-
     } catch (error) {
       console.error('Search Error:', error);
       alert(`Error: ${error.message}`);
@@ -121,13 +93,9 @@ function PerformancePredictionPage() {
   };
 
   const processStudentData = (studentData, riskData) => {
-    console.log('Processing Student Data:', studentData);
-    console.log('Processing Risk Analysis Data:', riskData);
-
     const { student, attendance, marks } = studentData;
     const { student_id, name, attendance_percentage, average_marks, assignment_submission_rate, engagement_metrics, gpa, risk_prediction } = riskData;
 
-    // Compute metrics from student data
     const totalAttendanceRecords = Array.isArray(attendance) ? attendance.length : 0;
     const presentRecords = Array.isArray(attendance) ? attendance.filter(record => record.is_present).length : 0;
     const attendancePercentage = totalAttendanceRecords > 0 ? (presentRecords / totalAttendanceRecords) * 100 : 0;
@@ -135,11 +103,10 @@ function PerformancePredictionPage() {
     const totalMarks = Array.isArray(marks) ? marks.reduce((sum, record) => sum + record.marks, 0) : 0;
     const averageMarks = Array.isArray(marks) && marks.length > 0 ? totalMarks / marks.length : 0;
 
-    const assignmentSubmissionRate = Array.isArray(marks) && marks.length > 0 ? 100 : 0; // Placeholder
-    const engagementMetrics = 'Moderate'; // Placeholder
-    const historicalGPA = averageMarks > 0 ? (averageMarks / 100) * 4.0 : 0; // Scale to a 4.0 GPA
+    const assignmentSubmissionRate = Array.isArray(marks) && marks.length > 0 ? 100 : 0;
+    const engagementMetrics = 'Moderate';
+    const historicalGPA = averageMarks > 0 ? (averageMarks / 100) * 4.0 : 0;
 
-    // Use risk analysis data if available, otherwise fall back to computed values
     const updatedFormData = {
       studentId: student_id ? student_id.toString() : student.id.toString(),
       studentName: name || student.name || '',
@@ -151,10 +118,8 @@ function PerformancePredictionPage() {
       riskLevel: risk_prediction?.risk_level || 'Unknown',
       predictedGrade: risk_prediction?.predicted_grade ? (risk_prediction.predicted_grade * 100).toFixed(2) : '',
     };
-    console.log('Updated Form Data:', updatedFormData);
     setFormData(updatedFormData);
 
-    // Update chart data using marks from student data
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'];
     const newChartData = Array.isArray(marks) && marks.length > 0
       ? marks.slice(0, 5).map((mark, index) => ({
@@ -165,13 +130,85 @@ function PerformancePredictionPage() {
           name: month,
           performance: average_marks ? (index === 0 ? average_marks : 0) : 0,
         }));
-    console.log('Updated Chart Data:', newChartData);
     setChartData(newChartData);
+
+    // Update prediction summary
+    setPredictionSummary({
+      excelPercentage: risk_prediction?.predicted_grade && risk_prediction.predicted_grade >= 0.8 ? 85 : 70,
+      predictedScore: riskData.risk_prediction.predicted_grade ,
+      riskLevel: risk_prediction?.risk_level || 'Not Available',
+    });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    alert('Running prediction with form data: ' + JSON.stringify(formData));
+    try {
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        throw new Error('Authentication token not found. Please log in.');
+      }
+
+      const payload = {
+        username: formData.studentName,
+        attendance: parseFloat(formData.totalAttendance) || 0,
+        marks: parseFloat(formData.marksPreviousExams) || 0,
+        assignment: parseFloat(formData.assignmentSubmissionRate) || 0,
+        engagement: parseFloat(formData.engagementMetrics) || 0,
+        gpa: parseFloat(formData.historicalGPA) || 0,
+      };
+
+      if (!payload.username || Object.values(payload).some(val => isNaN(val) && typeof val !== 'string')) {
+        throw new Error('All fields are required and must be valid numbers except username');
+      }
+
+      const response = await fetch('http://localhost:8000/api/custom/risk-analysis/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${authToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Error ${response.status}: ${errorData.error || response.statusText}`);
+      }
+
+      const riskData = await response.json();
+
+      setFormData({
+        ...formData,
+        studentId: riskData.student_id.toString(),
+        studentName: riskData.name,
+        totalAttendance: riskData.input_data.attendance.toFixed(2),
+        marksPreviousExams: riskData.input_data.average_marks.toFixed(2),
+        assignmentSubmissionRate: riskData.input_data.assignment_submission_rate.toFixed(2),
+        engagementMetrics: riskData.input_data.engagement_metrics.toFixed(2),
+        historicalGPA: riskData.input_data.gpa.toFixed(2),
+        riskLevel: riskData.risk_prediction.risk_level || 'Unknown',
+        predictedGrade: riskData.risk_prediction.predicted_grade ? (riskData.risk_prediction.predicted_grade * 100).toFixed(2) : '',
+      });
+
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'];
+      const newChartData = months.map((month, index) => ({
+        name: month,
+        performance: index === 0 ? riskData.input_data.average_marks : chartData[index]?.performance || 0,
+      }));
+      setChartData(newChartData);
+
+      // Update prediction summary
+      setPredictionSummary({
+        excelPercentage: riskData.risk_prediction.predicted_grade && riskData.risk_prediction.predicted_grade >= 0.8 ? 85 : 70,
+        predictedScore: riskData.risk_prediction.predicted_grade ,
+        riskLevel: riskData.risk_prediction.risk_level || 'Not Available',
+      });
+
+      alert('Prediction completed successfully!');
+    } catch (error) {
+      console.error('Prediction Error:', error);
+      alert(`Error: ${error.message}`);
+    }
   };
 
   const handleBulkPrediction = () => {
@@ -293,7 +330,7 @@ function PerformancePredictionPage() {
                   placeholder="Assignment Submission Rate (%)"
                 />
                 <input
-                  type="text"
+                  type="number"
                   name="engagementMetrics"
                   value={formData.engagementMetrics}
                   onChange={handleInputChange}
@@ -316,14 +353,6 @@ function PerformancePredictionPage() {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder-gray-400 transition-colors duration-200"
                   placeholder="Risk Level"
                 />
-                {/* <input
-                  type="number"
-                  name="predictedGrade"
-                  value={formData.predictedGrade}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder-gray-400 transition-colors duration-200"
-                  placeholder="Predicted Grade (%)"
-                /> */}
               </div>
               <button
                 onClick={handleSubmit}
@@ -334,10 +363,9 @@ function PerformancePredictionPage() {
               <div className="mt-8">
                 <h4 className="text-xl font-semibold text-gray-800 mb-4">Prediction Summary</h4>
                 <ul className="list-disc list-inside text-gray-600 space-y-2">
-                  <li>Percentage of Students Predicted to Excel: 85%</li>
-                  <li>Average Predicted Score: 78%</li>
-                  <li>Risk Level: {formData.riskLevel || 'Not Available'}</li>
-                  {/* <li>Predicted Grade: {formData.predictedGrade ? `${formData.predictedGrade}%` : 'Not Available'}</li> */}
+                  <li>Percentage of Students Predicted to Excel: {predictionSummary.excelPercentage}%</li>
+                  <li>Predicted Score: {predictionSummary.predictedScore}%</li>
+                  <li>Risk Level: {predictionSummary.riskLevel}</li>
                 </ul>
               </div>
             </div>

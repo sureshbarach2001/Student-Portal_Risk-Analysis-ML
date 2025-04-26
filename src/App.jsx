@@ -11,14 +11,12 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import HighMarksLowAttendancePage from './pages/HighMarksLowAttendancePage';
 import PerformancePredictionPage from './pages/PerformancePredictionPage.jsx'; //new page banana h
 import SearchPage from './pages/SearchPage';
-//import GradePredictionPage from './pages/GradePredictionPage'; //new page banana h
+import GradePredictionPage from './pages/GradePredictionPage'; //new page banana h
 
 
 
 
-function GradePredictionPage() {
-  return <div className="p-8">Grade Prediction Page (Under Construction)</div>;
-}
+
 
 // Redirector component to handle post-login navigation
 function Redirector() {

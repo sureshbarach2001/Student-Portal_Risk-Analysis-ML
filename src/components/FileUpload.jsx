@@ -7,17 +7,15 @@ function FileUpload() {
 
   // Handle file drop or selection
   const onDrop = useCallback((acceptedFiles, fileRejections) => {
-    // Check if there are any rejected files
     if (fileRejections.length > 0) {
       setUploadStatus({
         type: 'error',
-        message: 'Invalid file type. Only .csv and .excel files are supported.',
+        message: 'Invalid file type. Only .csv files are supported.',
       });
       setSelectedFile(null);
       return;
     }
 
-    // If a valid file is selected
     if (acceptedFiles.length > 0) {
       const file = acceptedFiles[0];
       setSelectedFile(file);
@@ -30,9 +28,8 @@ function FileUpload() {
     onDrop,
     accept: {
       'text/csv': ['.csv'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
     },
-    maxFiles: 1, // Limit to one file at a time
+    maxFiles: 1,
   });
 
   // Handle file upload to backend
@@ -46,20 +43,41 @@ function FileUpload() {
     formData.append('file', selectedFile);
 
     try {
-      // Replace this with your actual backend API endpoint
-      const response = await fetch('YOUR_BACKEND_API_ENDPOINT', {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        setUploadStatus({ type: 'error', message: 'Authentication token not found. Please log in.' });
+        return;
+      }
+
+      const response = await fetch('http://localhost:8000/api/students/upload-csv/', {
         method: 'POST',
+        headers: {
+          'Authorization': `Token ${token}`,
+        },
         body: formData,
       });
 
-      if (response.ok) {
-        setUploadStatus({ type: 'success', message: 'File uploaded successfully!' });
-        setSelectedFile(null); // Reset the selected file
+      const data = await response.json();
+
+      // Handle both 201 (success) and 207 (partial success with errors)
+      if (response.status === 201 || response.status === 207) {
+        let message = `File uploaded successfully! Created ${data.created_users.length} users, updated ${data.updated_students.length} students, ${data.created_attendance.length} attendance records, ${data.created_marks.length} marks records.`;
+        if (data.errors && data.errors.length > 0) {
+          message += ` Errors: ${data.errors.join('; ')}`;
+        }
+        setUploadStatus({
+          type: response.status === 207 ? 'warning' : 'success',
+          message: message,
+        });
+        setSelectedFile(null);
       } else {
-        setUploadStatus({ type: 'error', message: 'Failed to upload file. Please try again.' });
+        setUploadStatus({
+          type: 'error',
+          message: data.error || 'Failed to upload file. Please check the CSV format and try again.',
+        });
       }
     } catch (error) {
-      setUploadStatus({ type: 'error', message: 'An error occurred during upload.' });
+      setUploadStatus({ type: 'error', message: 'An error occurred during upload. Please try again.' });
       console.error('Upload error:', error);
     }
   };
@@ -83,7 +101,7 @@ function FileUpload() {
           {!selectedFile && (
             <span className="text-button-blue cursor-pointer">CHOOSE FILE</span>
           )}
-          {!selectedFile && ' to upload supported file types: .csv, .excel'}
+          {!selectedFile && ' to upload supported file type: .csv'}
         </p>
       </div>
 
@@ -91,7 +109,7 @@ function FileUpload() {
       {uploadStatus && (
         <p
           className={`mt-4 text-center ${
-            uploadStatus.type === 'success' ? 'text-risk-low' : 'text-risk-high'
+            uploadStatus.type === 'success' ? 'text-risk-low' : uploadStatus.type === 'warning' ? 'text-yellow-600' : 'text-risk-high'
           }`}
         >
           {uploadStatus.message}
