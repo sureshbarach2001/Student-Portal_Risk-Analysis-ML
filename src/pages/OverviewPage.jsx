@@ -11,8 +11,10 @@ ChartJS.register(LineElement, PointElement, LinearScale, Title, CategoryScale, T
 function OverviewPage() {
   const [attendanceData, setAttendanceData] = useState([]);
   const [marksData, setMarksData] = useState([]);
+  const [coursePredictions, setCoursePredictions] = useState([]);
   const [error, setError] = useState('');
-  const [downloadStatus, setDownloadStatus] = useState(null); // New state for download feedback
+  const [downloadStatus, setDownloadStatus] = useState(null);
+  const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
   const { token } = useAuth();
 
   // Chart data states
@@ -33,7 +35,7 @@ function OverviewPage() {
     datasets: [
       {
         label: 'Attendance',
-        data: [0, 0, 0, 0, 0], // Fixed dummy data typo
+        data: [0, 0, 0, 0, 0],
         borderColor: '#EF4444',
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
         fill: true,
@@ -88,8 +90,9 @@ function OverviewPage() {
     maintainAspectRatio: false,
   };
 
-  // Fetch attendance and marks data
+  // Fetch attendance, marks, and course predictions
   useEffect(() => {
+    console.log(token)
     const fetchAttendance = async () => {
       try {
         const response = await fetch(`${import.meta.env.VITE_API_URL}/api/my-attendance/`, {
@@ -134,9 +137,87 @@ function OverviewPage() {
       }
     };
 
+    const fetchCoursePredictions = async () => {
+      setIsLoadingPredictions(true);
+      try {
+        // Fetch all courses
+        const coursesResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/student/courses/`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Token ${token}`,
+          },
+        });
+        if (!coursesResponse.ok) {
+          const errorData = await coursesResponse.json();
+          setError(errorData.error || 'Failed to fetch courses');
+          setIsLoadingPredictions(false);
+          return;
+        }
+        const courses = await coursesResponse.json();
+        console.log('Courses:', courses);
+
+        // Fetch predictions for each course
+        const predictions = [];
+        for (const course of courses) {
+          try {
+            const predictionResponse = await fetch(
+              `${import.meta.env.VITE_API_URL}/api/student/course-prediction/${course.id}/`,
+              {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Token ${token}`,
+                },
+              }
+            );
+            if (predictionResponse.ok) {
+              const predictionData = await predictionResponse.json();
+              predictions.push({
+                course: {
+                  id: course.id,
+                  name: course.name,
+                  code: course.code,
+                },
+                risk_prediction: predictionData.risk_prediction,
+              });
+            } else {
+              const errorData = await predictionResponse.json();
+              predictions.push({
+                course: {
+                  id: course.id,
+                  name: course.name,
+                  code: course.code,
+                },
+                error: errorData.error || 'Failed to fetch prediction',
+              });
+            }
+          } catch (err) {
+            console.error(`Error fetching prediction for course ${course.name}:`, err);
+            predictions.push({
+              course: {
+                id: course.id,
+                name: course.name,
+                code: course.code,
+              },
+              error: 'Network error fetching prediction',
+            });
+          }
+        }
+        console.log('Course predictions:', predictions);
+        setCoursePredictions(predictions);
+      } catch (err) {
+        console.error('Error fetching courses:', err);
+        setError('Network error fetching course predictions.');
+      } finally {
+        setIsLoadingPredictions(false);
+      }
+    };
+
     if (token) {
       fetchAttendance();
       fetchMarks();
+      fetchCoursePredictions();
     } else {
       setError('Please log in to view overview.');
     }
@@ -144,16 +225,14 @@ function OverviewPage() {
 
   // Process data for charts
   useEffect(() => {
-    // Months to display (match dummy data)
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'];
-    const monthIndices = [0, 1, 2, 3, 4]; // Jan=0, ..., May=4
+    const monthIndices = [0, 1, 2, 3, 4];
 
-    // Attendance: Calculate % of present days per month
     const attendanceByMonth = Array(5).fill().map(() => ({ present: 0, total: 0 }));
     attendanceData.forEach((record) => {
       const date = new Date(record.date);
       const monthIndex = date.getMonth();
-      if (monthIndex <= 4) { // Limit to Jan-May
+      if (monthIndex <= 4) {
         attendanceByMonth[monthIndex].total += 1;
         if (record.is_present) {
           attendanceByMonth[monthIndex].present += 1;
@@ -170,10 +249,9 @@ function OverviewPage() {
         )
       : 0;
 
-    // Marks: Calculate average % per month
     const marksByMonth = Array(5).fill().map(() => ({ totalMarks: 0, maxMarks: 0 }));
     marksData.forEach((record) => {
-      if (record.marks >= 0) { // Exclude not submitted
+      if (record.marks >= 0) {
         const date = new Date(record.date);
         const monthIndex = date.getMonth();
         if (monthIndex <= 4) {
@@ -194,7 +272,6 @@ function OverviewPage() {
         )
       : 0;
 
-    // Update chart data
     setAttendanceChartData({
       labels: months,
       datasets: [
@@ -235,6 +312,7 @@ function OverviewPage() {
           'Authorization': `Token ${token}`,
         },
       });
+      console.log('Download response status:', response.status);
       if (response.ok) {
         const blob = await response.blob();
         const contentDisposition = response.headers.get('Content-Disposition');
@@ -250,19 +328,37 @@ function OverviewPage() {
         a.remove();
         window.URL.revokeObjectURL(url);
         setDownloadStatus({ type: 'success', message: 'CSV downloaded successfully.' });
+        setTimeout(() => setDownloadStatus(null), 3000);
       } else {
         const data = await response.json();
-        setDownloadStatus({
-          type: 'error',
-          message: data.error || 'Failed to download CSV. Please try again.',
-        });
+        const errorMessage =
+          response.status === 403
+            ? 'You are not authorized to download this data. Please log in as a student.'
+            : response.status === 404
+            ? 'Student profile not found. Please contact support.'
+            : data.error || 'Failed to download CSV. Please try again.';
+        setDownloadStatus({ type: 'error', message: errorMessage });
       }
     } catch (error) {
       setDownloadStatus({
         type: 'error',
-        message: 'An error occurred during download. Please try again.',
+        message: 'Network error during download. Please check your connection and try again.',
       });
       console.error('Download error:', error);
+    }
+  };
+
+  // Map risk level to colors
+  const getRiskLevelStyle = (riskLevel) => {
+    switch (riskLevel?.toLowerCase()) {
+      case 'low':
+        return 'bg-green-100 text-green-800';
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'high':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -291,9 +387,7 @@ function OverviewPage() {
 
             {/* Error Message */}
             {error && (
-              <div className="bg-red-100 text-red-700 p-3 rounded mb-4">
-                {error}
-              </div>
+              <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>
             )}
 
             {/* Download Status Message */}
@@ -348,64 +442,64 @@ function OverviewPage() {
               </div>
             </div>
 
-            {/* Subject Overview */}
+            {/* Course Overview */}
             <div>
-              <h3 className="text-lg font-medium text-gray-800 mb-4">Subject Overview</h3>
+              <h3 className="text-lg font-medium text-gray-800 mb-4">Course Overview</h3>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <thead>
                     <tr className="bg-gray-50">
-                      <th className="p-4 text-left text-sm font-medium text-gray-600 border-b border-gray-200">Subject</th>
-                      <th className="p-4 text-left text-sm font-medium text-gray-600 border-b border-gray-200">Predicted Score</th>
-                      <th className="p-4 text-left text-sm font-medium text-gray-600 border-b border-gray-200">Risk Level</th>
+                      <th className="p-4 text-left text-sm font-medium text-gray-600 border-b border-gray-200">
+                        Course
+                      </th>
+                      <th className="p-4 text-left text-sm font-medium text-gray-600 border-b border-gray-200">
+                        Predicted Score
+                      </th>
+                      <th className="p-4 text-left text-sm font-medium text-gray-600 border-b border-gray-200">
+                        Risk Level
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td className="p-4 text-gray-600 border-b border-gray-200">Mathematics</td>
-                      <td className="p-4 text-gray-600 border-b border-gray-200">86%</td>
-                      <td className="p-4 border-b border-gray-200">
-                        <span className="inline-block px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full">
-                          Low
-                        </span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="p-4 text-gray-600 border-b border-gray-200">Science</td>
-                      <td className="p-4 text-gray-600 border-b border-gray-200">74%</td>
-                      <td className="p-4 border-b border-gray-200">
-                        <span className="inline-block px-3 py-1 bg-yellow-100 text-yellow-800 text-sm rounded-full">
-                          Medium
-                        </span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="p-4 text-gray-600 border-b border-gray-200">English</td>
-                      <td className="p-4 text-gray-600 border-b border-gray-200">80%</td>
-                      <td className="p-4 border-b border-gray-200">
-                        <span className="inline-block px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full">
-                          Low
-                        </span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="p-4 text-gray-600 border-b border-gray-200">History</td>
-                      <td className="p-4 text-gray-600 border-b border-gray-200">70%</td>
-                      <td className="p-4 border-b border-gray-200">
-                        <span className="inline-block px-3 py-1 bg-yellow-100 text-yellow-800 text-sm rounded-full">
-                          Medium
-                        </span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="p-4 text-gray-600 border-b border-gray-200">Geography</td>
-                      <td className="p-4 text-gray-600 border-b border-gray-200">90%</td>
-                      <td className="p-4 border-b border-gray-200">
-                        <span className="inline-block px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full">
-                          Low
-                        </span>
-                      </td>
-                    </tr>
+                    {isLoadingPredictions ? (
+                      <tr>
+                        <td colSpan="3" className="p-4 text-gray-600 text-center">
+                          Loading course predictions...
+                        </td>
+                      </tr>
+                    ) : coursePredictions.length > 0 ? (
+                      coursePredictions.map((course, index) => (
+                        <tr key={index}>
+                          <td className="p-4 text-gray-600 border-b border-gray-200">{course.course.name}</td>
+                          <td className="p-4 text-gray-600 border-b border-gray-200">
+                            {course.risk_prediction
+                              ? `${course.risk_prediction.predicted_grade}%`
+                              : 'N/A'}
+                          </td>
+                          <td className="p-4 border-b border-gray-200">
+                            {course.risk_prediction ? (
+                              <span
+                                className={`inline-block px-3 py-1 text-sm rounded-full ${getRiskLevelStyle(
+                                  course.risk_prediction.risk_level
+                                )}`}
+                              >
+                                {course.risk_prediction.risk_level}
+                              </span>
+                            ) : (
+                              <span className="inline-block px-3 py-1 text-sm rounded-full bg-gray-100 text-gray-800">
+                                {course.error || 'N/A'}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="3" className="p-4 text-gray-600 text-center">
+                          No course predictions available.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
