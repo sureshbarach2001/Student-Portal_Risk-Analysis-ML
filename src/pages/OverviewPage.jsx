@@ -12,6 +12,7 @@ function OverviewPage() {
   const [attendanceData, setAttendanceData] = useState([]);
   const [marksData, setMarksData] = useState([]);
   const [error, setError] = useState('');
+  const [downloadStatus, setDownloadStatus] = useState(null); // New state for download feedback
   const { token } = useAuth();
 
   // Chart data states
@@ -32,7 +33,7 @@ function OverviewPage() {
     datasets: [
       {
         label: 'Attendance',
-        data: [0, 0, 0, 'Apr', 'May'],
+        data: [0, 0, 0, 0, 0], // Fixed dummy data typo
         borderColor: '#EF4444',
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
         fill: true,
@@ -224,6 +225,47 @@ function OverviewPage() {
     setMarksPercentage(overallMarks);
   }, [attendanceData, marksData]);
 
+  // Handle CSV download
+  const handleDownload = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/my-data/export-csv/`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`,
+        },
+      });
+      if (response.ok) {
+        const blob = await response.blob();
+        const contentDisposition = response.headers.get('Content-Disposition');
+        const filename = contentDisposition
+          ? contentDisposition.match(/filename="(.+)"/)?.[1] || 'my_data.csv'
+          : 'my_data.csv';
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        setDownloadStatus({ type: 'success', message: 'CSV downloaded successfully.' });
+      } else {
+        const data = await response.json();
+        setDownloadStatus({
+          type: 'error',
+          message: data.error || 'Failed to download CSV. Please try again.',
+        });
+      }
+    } catch (error) {
+      setDownloadStatus({
+        type: 'error',
+        message: 'An error occurred during download. Please try again.',
+      });
+      console.error('Download error:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen">
       {/* Header */}
@@ -237,12 +279,33 @@ function OverviewPage() {
         {/* Main Content */}
         <main className="flex-1 p-6 ml-64 mt-16 bg-white">
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-800 mb-6">Performance Overview</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-800">Performance Overview</h2>
+              <button
+                onClick={handleDownload}
+                className="px-4 py-2 bg-green-500 text-white rounded-full font-medium hover:bg-green-600 transition-colors"
+              >
+                Download My Data
+              </button>
+            </div>
 
             {/* Error Message */}
             {error && (
               <div className="bg-red-100 text-red-700 p-3 rounded mb-4">
                 {error}
+              </div>
+            )}
+
+            {/* Download Status Message */}
+            {downloadStatus && (
+              <div
+                className={`p-3 rounded mb-4 ${
+                  downloadStatus.type === 'success'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-red-100 text-red-700'
+                }`}
+              >
+                {downloadStatus.message}
               </div>
             )}
 
