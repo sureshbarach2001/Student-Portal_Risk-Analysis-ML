@@ -90,6 +90,15 @@ function OverviewPage() {
     maintainAspectRatio: false,
   };
 
+  // Function to convert percentage to letter grade
+  const getLetterGrade = (percentage) => {
+    if (percentage >= 90) return 'A';
+    if (percentage >= 80) return 'B';
+    if (percentage >= 70) return 'C';
+    if (percentage >= 60) return 'D';
+    return 'F';
+  };
+
   // Fetch attendance, marks, and course predictions
   useEffect(() => {
     console.log(token)
@@ -453,7 +462,7 @@ function OverviewPage() {
                         Course
                       </th>
                       <th className="p-4 text-left text-sm font-medium text-gray-600 border-b border-gray-200">
-                        Predicted Score
+                        Predicted Grade
                       </th>
                       <th className="p-4 text-left text-sm font-medium text-gray-600 border-b border-gray-200">
                         Risk Level
@@ -473,7 +482,7 @@ function OverviewPage() {
                           <td className="p-4 text-gray-600 border-b border-gray-200">{course.course.name}</td>
                           <td className="p-4 text-gray-600 border-b border-gray-200">
                             {course.risk_prediction
-                              ? `${course.risk_prediction.predicted_grade}%`
+                              ? getLetterGrade(course.risk_prediction.predicted_grade)
                               : 'N/A'}
                           </td>
                           <td className="p-4 border-b border-gray-200">
