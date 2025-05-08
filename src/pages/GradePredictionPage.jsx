@@ -40,7 +40,6 @@ function GradePredictionPage() {
     const fetchStudentData = async () => {
       try {
         const token = localStorage.getItem('authToken'); // Adjust based on how you store the token
-        // Fetch student list
         const studentsResponse = await fetch('http://localhost:8000/api/students/all-details/', {
           headers: {
             'Authorization': `Token ${token}`,
@@ -54,7 +53,6 @@ function GradePredictionPage() {
 
         const studentsData = await studentsResponse.json();
 
-        // Fetch risk analysis for each student
         const processedStudentData = await Promise.all(
           studentsData.map(async (item) => {
             const { student } = item;
@@ -86,11 +84,10 @@ function GradePredictionPage() {
               };
             } catch (err) {
               console.warn(`Risk analysis fetch failed for ${student.name}: ${err.message}`);
-              // Fallback to dummy values if risk analysis fails
               return {
                 id: student.roll_number,
                 name: student.name,
-                predictedGrade: '75.00', // Dummy numerical grade
+                predictedGrade: '75.00',
                 marks: '75%',
                 attendance: '80%',
                 avgGPA: 3.0,
@@ -100,7 +97,6 @@ function GradePredictionPage() {
           })
         );
 
-        // Calculate grade distribution
         const gradeCounts = processedStudentData.reduce((acc, student) => {
           const letterGrade = getLetterGrade(student.predictedGrade);
           acc[letterGrade] = (acc[letterGrade] || 0) + 1;
@@ -171,21 +167,16 @@ function GradePredictionPage() {
 
   return (
     <div className="flex min-h-screen">
-      {/* Sidebar */}
       <div className="w-16 bg-gray-800 text-white flex-shrink-0">
         <Sidebar />
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        {/* Header */}
         <Header />
 
-        {/* Grade Prediction Section */}
         <div className="p-6 ml-64 mt-16">
           <h2 className="text-2xl font-bold text-text-dark mb-4">Dashboard Overview</h2>
 
-          {/* Grade Distribution Chart */}
           <div className="bg-white p-4 rounded-lg shadow-md mb-4">
             <BarChart width={600} height={300} data={gradeData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
@@ -197,7 +188,6 @@ function GradePredictionPage() {
             </BarChart>
           </div>
 
-          {/* Table */}
           <div className="bg-white rounded-lg shadow-md overflow-x-auto">
             <table className="w-full text-left">
               <thead>
@@ -219,7 +209,7 @@ function GradePredictionPage() {
                   >
                     <td className="p-3 text-black">{student.id}</td>
                     <td className="p-3 text-black">{student.name}</td>
-                    <td className="p-3 text-black">{student.predictedGrade}</td>
+                    <td className="p-3 text-black">{getLetterGrade(student.predictedGrade)}</td>
                     <td className="p-3 text-black">{student.marks}</td>
                     <td className="p-3 text-black">{student.attendance}</td>
                     <td className="p-3 text-black">{student.avgGPA}</td>
@@ -230,7 +220,6 @@ function GradePredictionPage() {
             </table>
           </div>
 
-          {/* Filter and View All */}
           <div className="mt-4 flex items-center space-x-4">
             <div className="flex items-center">
               <span className="mr-2 text-text-gray">Filter By:</span>

@@ -22,7 +22,7 @@ import GradePredictionPage from './pages/GradePredictionPage'; //new page banana
 function Redirector() {
   const { role } = useAuth();
   const navigate = useNavigate();
-
+console.log("Role : ", role);
   useEffect(() => {
     if (role) {
       if (role === 'Admin' || role === 'Teacher') {

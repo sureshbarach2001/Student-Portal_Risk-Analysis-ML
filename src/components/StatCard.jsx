@@ -1,13 +1,14 @@
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 
 function StatCard({ title, value, change, trend }) {
-  // Dummy data for the trend graph (you can replace this with real data)
+  // Adjust graph data to reflect dynamic value and trend
+  const baseValue = value === 0 ? 1 : value; // Use 1 as base to avoid flat graph at 0
   const data = [
-    { name: '1', value: 10 },
-    { name: '2', value: 12 },
-    { name: '3', value: 8 },
-    { name: '4', value: 15 },
-    { name: '5', value: trend === 'up' ? 20 : 5 }, // Simulate trend
+    { name: '1', value: Math.max(1, baseValue - (trend === 'up' ? 5 : 2)) },
+    { name: '2', value: Math.max(1, baseValue - (trend === 'up' ? 3 : 1)) },
+    { name: '3', value: Math.max(1, baseValue - (trend === 'up' ? 1 : 0)) },
+    { name: '4', value: baseValue },
+    { name: '5', value: trend === 'up' ? baseValue + 2 : Math.max(1, baseValue - 2) },
   ];
 
   // Determine colors based on trend

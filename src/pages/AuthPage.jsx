@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -6,8 +6,22 @@ function AuthPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const { setToken, setRole: setGlobalRole } = useAuth();
+  const { token, role, login } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect if already logged in (token and role exist)
+  useEffect(() => {
+    if (token && role) {
+      console.log('Already logged in. Token:', token, 'Role:', role);
+      if (role === 'Admin') {
+        console.log('Navigating to /teacher-dashboard');
+        navigate('/teacher-dashboard', { replace: true });
+      } else {
+        console.log('Navigating to /student-dashboard');
+        navigate('/student-dashboard', { replace: true });
+      }
+    }
+  }, [token, role, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -36,17 +50,12 @@ function AuthPage() {
         const { token, user } = data;
         console.log('Login successful. Token:', token, 'User:', user);
 
-        // Store token and role in AuthContext
-        setToken(token);
-        const role = user.role === 'teacher' ? 'Admin' : 'Student';
-        setGlobalRole(role);
+        // Map user.role to context role and store in AuthContext
+        const userRole = user.role === 'teacher' ? 'Admin' : 'Student';
+        login(token, userRole); // Use login function to set token and role
 
-        // Store token in localStorage for persistence
-        localStorage.setItem('authToken', token);
-        localStorage.setItem('userRole', user.role);
-
-        // Navigate based on role
-        if (role === 'Admin') {
+        // Navigate based on role (handled by useEffect, but kept for clarity)
+        if (userRole === 'Admin') {
           console.log('Navigating to /teacher-dashboard');
           navigate('/teacher-dashboard', { replace: true });
         } else {
@@ -64,6 +73,7 @@ function AuthPage() {
     }
   };
 
+  // If token and role exist, the useEffect will redirect, so we can render the form otherwise
   return (
     <div className="min-h-screen bg-gray-100">
       <main className="w-full px-4 sm:px-6 lg:px-8 py-12 flex items-center justify-center">

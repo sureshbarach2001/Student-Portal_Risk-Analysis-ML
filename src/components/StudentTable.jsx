@@ -146,11 +146,9 @@ function StudentTable() {
               <td>
                 <span
                   className={`px-2 py-1 rounded-full text-white ${
-                    student.risk === 'High'
-                      ? 'bg-risk-high'
-                      : student.risk === 'Medium'
-                      ? 'bg-risk-medium'
-                      : 'bg-risk-low'
+                    student.risk === 'High Risk' ? 'bg-red-500' 
+                    : student.risk === 'Medium Risk' ? 'bg-yellow-400' 
+                    : 'bg-green-500' // Replaced bg-risk-low with bg-green-500 for consistency
                   }`}
                 >
                   {student.risk}

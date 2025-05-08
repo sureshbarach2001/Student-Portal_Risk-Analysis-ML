@@ -1,7 +1,16 @@
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header_Student';
+import { useAuth } from '../context/AuthContext'; // Import useAuth
 
 function ProfilePage() {
+  const { logout } = useAuth(); // Access logout function
+
+  const handleLogout = () => {
+    logout(); // Clear token and role from AuthContext and localStorage
+    console.log("Logged out");
+    // Note: Redirect to login page is handled by ProtectedRoute in App.jsx
+  };
+
   return (
     <div className="min-h-screen">
       {/* Header */}
@@ -99,13 +108,20 @@ function ProfilePage() {
                     />
                   </div>
 
-                  {/* Save Changes Button */}
-                  <div className="flex justify-end">
+                  {/* Save Changes and Logout Buttons */}
+                  <div className="flex justify-end space-x-4">
                     <button
                       type="submit"
                       className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       Save Changes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                    >
+                      Logout
                     </button>
                   </div>
                 </form>

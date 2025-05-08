@@ -1,12 +1,14 @@
 import { useState } from "react";
 import Sidebar from "../components/Sidebar"; // Adjust path as needed
 import Header from "../components/Header"; // Adjust path as needed
+import { useAuth } from "../context/AuthContext"; // Import useAuth
 
 function TeacherProfilePage() {
   const [role, setRole] = useState("Admin"); // Role is fixed as in the image
   const [attendanceThreshold, setAttendanceThreshold] = useState(50); // Default from image
   const [gradeCutOff, setGradeCutOff] = useState(85); // Default from image
   const [exportFormat, setExportFormat] = useState("CSV"); // Default from image
+  const { logout } = useAuth(); // Access logout function
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -17,6 +19,12 @@ function TeacherProfilePage() {
       exportFormat,
     });
     alert("Settings updated successfully! (Dummy action)");
+  };
+
+  const handleLogout = () => {
+    logout(); // Clear token and role from AuthContext and localStorage
+    console.log("Logged out");
+    // Note: Redirect to login page is handled by ProtectedRoute in App.jsx
   };
 
   return (
@@ -121,13 +129,20 @@ function TeacherProfilePage() {
               </select>
             </div>
 
-            {/* Save Button */}
-            <div className="flex justify-start">
+            {/* Save and Logout Buttons */}
+            <div className="flex justify-start space-x-4">
               <button
                 type="submit"
                 className="px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
               >
                 Save Settings
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="px-6 py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-colors"
+              >
+                Logout
               </button>
             </div>
           </form>
