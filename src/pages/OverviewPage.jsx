@@ -357,17 +357,29 @@ function OverviewPage() {
     }
   };
 
-  // Map risk level to colors
+  // Map risk level to colors and labels
   const getRiskLevelStyle = (riskLevel) => {
     switch (riskLevel?.toLowerCase()) {
-      case 'low':
-        return 'bg-green-100 text-green-800';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'high':
-        return 'bg-red-100 text-red-800';
+      case 'low risk':
+        return {
+          classes: 'bg-green-100 text-green-800',
+          label: 'Low Risk',
+        };
+      case 'medium risk':
+        return {
+          classes: 'bg-yellow-100 text-yellow-800',
+          label: 'Medium Risk',
+        };
+      case 'high risk':
+        return {
+          classes: 'bg-red-100 text-red-800',
+          label: 'High Risk',
+        };
       default:
-        return 'bg-gray-100 text-gray-800';
+        return {
+          classes: 'bg-gray-100 text-gray-800',
+          label: 'N/A',
+        };
     }
   };
 
@@ -477,31 +489,29 @@ function OverviewPage() {
                         </td>
                       </tr>
                     ) : coursePredictions.length > 0 ? (
-                      coursePredictions.map((course, index) => (
-                        <tr key={index}>
-                          <td className="p-4 text-gray-600 border-b border-gray-200">{course.course.name}</td>
-                          <td className="p-4 text-gray-600 border-b border-gray-200">
-                            {course.risk_prediction
-                              ? getLetterGrade(course.risk_prediction.predicted_grade)
-                              : 'N/A'}
-                          </td>
-                          <td className="p-4 border-b border-gray-200">
-                            {course.risk_prediction ? (
+                      coursePredictions.map((course, index) => {
+                        const riskLevelInfo = course.risk_prediction
+                          ? getRiskLevelStyle(course.risk_prediction.risk_level)
+                          : { classes: 'bg-gray-100 text-gray-800', label: course.error || 'N/A' };
+
+                        return (
+                          <tr key={index}>
+                            <td className="p-4 text-gray-600 border-b border-gray-200">{course.course.name}</td>
+                            <td className="p-4 text-gray-600 border-b border-gray-200">
+                              {course.risk_prediction
+                                ? getLetterGrade(course.risk_prediction.predicted_grade)
+                                : 'N/A'}
+                            </td>
+                            <td className="p-4 border-b border-gray-200">
                               <span
-                                className={`inline-block px-3 py-1 text-sm rounded-full ${getRiskLevelStyle(
-                                  course.risk_prediction.risk_level
-                                )}`}
+                                className={`inline-block px-3 py-1 text-sm rounded-full ${riskLevelInfo.classes}`}
                               >
-                                {course.risk_prediction.risk_level}
+                                {riskLevelInfo.label}
                               </span>
-                            ) : (
-                              <span className="inline-block px-3 py-1 text-sm rounded-full bg-gray-100 text-gray-800">
-                                {course.error || 'N/A'}
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))
+                            </td>
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
                         <td colSpan="3" className="p-4 text-gray-600 text-center">
